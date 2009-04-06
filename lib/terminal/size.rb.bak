@@ -1,0 +1,88 @@
+#“Ruby Cookbook, by Lucas Carlson and Leonard Richardson. Copyright 2006 O’Reilly Media, Inc., 0-596-52369-6.”
+
+                                             
+class TerminalSize
+  attr_accessor :rows, :cols
+  def initialize
+    @rows, @cols = nil, nil
+    puts "In initialize; class=#{self.class}"
+  end
+  def self.get
+    return unless self.class == TerminalSize
+    klass = case RUBY_PLATFORM
+      when /mswin/                   then @os = 'windows'; Windows
+      when /(powerpc|linux|freebsd)/ then @os = $1;        Unix
+      else raise UnknownOS
+    end
+    $stderr.puts "@os=#{@os}"
+    klass.new.get
+  end
+  def valid?
+    [self.rows, self.cols].all? {|d| d.is_a? Integer}
+  end
+end
+
+class TerminalSize::Unix < TerminalSize
+  # Ideally we'd derive the architecture from RUBY_PLATFORM, but there
+  # doesn't seem to be any standard way of doing this. Thus, we assume that
+  # Mac's use PowerPC, and everybody else uses Intel. However, if our first
+  # choice doesn't work, we try the second. 
+  TIOCGWINSZ = {}
+  TIOCGWINSZ['Intel']   = 0x5413
+  TIOCGWINSZ['PowerPC'] = 0x40087468
+  def initialize
+    super
+    $stderr.puts "In Unix"
+  end
+  def get
+    %w{ioctl stty}.each do |source|
+      $stderr.puts "Trying #{source}"
+      self.send("from_#{source}")
+      $stderr.puts "Got #{@rows}[#{self.rows}], #{@cols}"
+      return if self.valid?
+    end  
+    raise FailedToGetSize
+  end  
+  def from_ioctl
+    rows, cols = 25, 80 #TODO: Use this as standard size?
+    buf = [ 0, 0, 0, 0 ].pack("SSSS")
+    arch = %w{Intel PowerPC}
+    arch.reverse! if @os == 'powerpc'
+    arch.each do |a|
+      if STDOUT.ioctl(TIOCGWINSZ[a], buf) >= 0 then
+        rows, cols, row_pixels, col_pixels = buf.unpack("SSSS")[0..1]
+        self.rows = rows
+        self.cols = cols
+      end
+      break if self.valid?
+    end
+  end  
+  def from_stty
+    @rows, @cols = %x{stty size}.split.collect { |x| x.to_i }
+  end
+end
+class TerminalSize::Windows < TerminalSize  
+  STDOUT_HANDLE = 0xFFFFFFF5
+  def initialize
+    super
+    # TODO: Display warning to all non-Linux users
+    $stderr.puts "WARNING: This code has not been tested on Windows."  +
+                 "Perform your own tests before relying on the values" +
+                 " returned by this library. Whatever your experiences, "+
+                 " the author is interested in hearing them." 
+  end  
+  def get
+    m_GetStdHandle = Win32API.new('kernel32', 'GetStdHandle', ['L'], 'L')
+    m_GetConsoleScreenBufferInfo = Win32API.new('kernel32',
+                                                  'GetConsoleScreenBufferInfo',
+                                                  ['L', 'P'], 'L' )
+    format = 'SSSSSssssSS'
+    buf = ([0] * format.size).pack(format)
+    stdout_handle = m_GetStdHandle.call(STDOUT_HANDLE)
+    m_GetConsoleScreenBufferInfo.call(stdout_handle, buf)
+    (bufx, bufy, curx, cury, wattr,
+      left, top, right, bottom, maxx, maxy) = buf.unpack(format)
+    @rows, @cols = bottom - top + 1, right - left + 1
+  end
+end    
+

@@ -1,0 +1,4 @@
+require 'rubygems'
+require 'terminal/size'
+terminal = TerminalSize.new
+puts "Your terminal has #{terminal.rows} rows and #{terminal.cols} cols."
