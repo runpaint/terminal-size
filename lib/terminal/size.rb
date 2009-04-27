@@ -1,6 +1,6 @@
 
 # = Introduction
-# TerminalSize is a library for finding the dimensions of the terminal a pRuby
+# TerminalSize is a library for finding the dimensions of the terminal a Ruby
 # program is running on.
 #
 # = Using TerminalSize
