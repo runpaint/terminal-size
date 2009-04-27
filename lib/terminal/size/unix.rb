@@ -8,6 +8,7 @@ class TerminalSize
     super
   end
   def get
+    raise NotATTY unless $stdout.tty?
     %w{ioctl stty}.each do |source|
       self.send("from_#{source}")
       return if self.valid?

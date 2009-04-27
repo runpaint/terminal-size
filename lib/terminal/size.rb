@@ -71,3 +71,9 @@ class TerminalSize::FailedToGetSize < StandardError
     $stderr.puts @message
   end
 end   
+class TerminalSize::NotATTY < StandardError
+# Exception thrown if the terminal is not a TTY.  
+  def initialize
+    super "STDOUT is not a TTY."
+  end
+end   
